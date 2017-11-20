@@ -12,6 +12,7 @@
     name: "{{ unbound_version }}"
     state: latest
   tags: install
+  register: unbound_install
 
 #Copy base unbound config
 - name: Unbound base config
@@ -43,11 +44,12 @@
 - name: Ubound local configuration file generation
   file:
     path: /etc/unbound/conf.d/{{ item }}.conf
-    state: file
+    state: touch
     owner: root
     group: unbound
   with_items:
     -  "{{ domain.split(',') }}"
+  when: unbound_install.changed
   tags: config
 
 #Add config to files
