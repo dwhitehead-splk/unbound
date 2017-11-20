@@ -1,0 +1,81 @@
+---
+
+- name: domain var check
+  fail: msg='Please ensure at least 1 domain is specified, --extra-vars "domain=itops.splunkdev.com,bizapps.splunkdev.com"'
+  when: domain is undefined 
+  tags: checks, config
+
+#Default version is latest. Can pass specific versions via vars,
+#e.g. --extra-vars unbound_version="unbound-1.4.20-34.el7.x86_64". May want to version lock this at some point
+- name: Install Unbound
+  package:
+    name: "{{ unbound_version }}"
+    state: latest
+  tags: install
+
+#Copy base unbound config
+- name: Unbound base config
+  copy: src=config/unbound.conf dest=/etc/unbound/unbound.conf owner=root group=unbound 
+    mode=0644
+  tags: config
+
+#Grab current name server from etc/resolv. This will always be the 2nd IP on the VPC for EC2 instances
+- name: Obtain EC2 default nameserver
+  shell: "cat /etc/resolv.conf|grep nameserver| awk -F ' ' '{print $2}'"
+  register: resolv_conf_current
+  tags: config
+  changed_when: False
+
+#Single file unbound.conf configuration. Using conf.d seems cleaner. Leaving this in case we change our minds
+# - name: Update Ubound local forward configuration
+#   blockinfile:
+#     path: /etc/unbound/unbound.conf
+#     block: |
+#       forward-zone:
+#           name: {{ item }}
+#           forward-addr: {{ resolv_conf_current.stdout }}
+#     marker: "# {mark} ANSIBLE MANAGED BLOCK {{ item }}"
+#   with_items:
+#     -  "{{ domain.split(',') }}"
+#   tags: config
+
+#Create files for updating
+- name: Ubound local configuration file generation
+  file:
+    path: /etc/unbound/conf.d/{{ item }}.conf
+    state: file
+    owner: root
+    group: unbound
+  with_items:
+    -  "{{ domain.split(',') }}"
+  tags: config
+
+#Add config to files
+- name: Ubound local forward configuration
+  blockinfile:
+    path: /etc/unbound/conf.d/{{ item }}.conf
+    block: |
+      forward-zone:
+          name: {{ item }}
+          forward-addr: {{ resolv_conf_current.stdout }}
+  with_items:
+    -  "{{ domain.split(',') }}"
+  register: config_change
+  tags: config
+
+- name: Restart Unbound after config change
+  service:
+    name: unbound
+    state: restarted
+    enabled: yes
+  when: config_change.changed
+  tags: service
+
+- name: Start Unbound
+  service:
+    name: unbound
+    state: started
+    enabled: yes
+  when: not config_change.changed
+  tags: service
+
