@@ -2,10 +2,11 @@
 galaxy_info:
   author: "David Whitehead"
   company: Splunk
+  description: "Unbound configuration for VPC split horizon resolution"
   license: "MIT"
   min_ansible_version: 2.4 
   platforms:
-   - name: Centos
+   - name: EL
      versions:
       - 6
       - 7
