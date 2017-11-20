@@ -20,7 +20,7 @@
     mode=0644
   tags: config
 
-#Grab current name server from etc/resolv. This will always be the 2nd IP on the VPC for EC2 instances
+#Grab current name server from etc/resolv. This will always be the 2nd IP on the subnet for EC2 instances
 - name: Obtain EC2 default nameserver
   shell: "cat /etc/resolv.conf|grep nameserver| awk -F ' ' '{print $2}'"
   register: resolv_conf_current
